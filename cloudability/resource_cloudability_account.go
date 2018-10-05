@@ -52,7 +52,7 @@ func resourceAccountCreate(d *schema.ResourceData, meta interface{}) error {
 	err := try.Do(func(attempt int) (bool, error) {
 		var err error
 		account, err = client.verify(accountID)
-		if err != nil {
+		if err != nil || account.Verification.State != "verified" {
 			time.Sleep(5 * time.Second)
 		}
 		return attempt < attempts, err
