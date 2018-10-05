@@ -1,7 +1,11 @@
 package cloudability
 
 import (
+	"fmt"
+	"time"
+
 	"github.com/hashicorp/terraform/helper/schema"
+	"github.com/matryer/try"
 )
 
 func resourceAccount() *schema.Resource {
@@ -42,10 +46,24 @@ func resourceAccountCreate(d *schema.ResourceData, meta interface{}) error {
 	client := config.CloudabilityClient
 
 	accountID := d.Get("account_id").(string)
+	attempts := 5
 
-	account, err := client.verify(accountID)
+	var account CloudabilityAccount
+	err = try.Do(func(attempt int) (bool, error) {
+		var err error
+		account, err = client.verify(accountID)
+		if err != nil {
+			time.Sleep(5 * time.Second)
+		}
+		return attempt < attempts, err
+	})
+
 	if err != nil {
 		return err
+	}
+
+	if account.Verification.State != "verified" {
+		return fmt.Errorf("The account failed to verify. %s", account.ID)
 	}
 
 	d.SetId(account.ID)
