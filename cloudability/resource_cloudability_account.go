@@ -49,7 +49,7 @@ func resourceAccountCreate(d *schema.ResourceData, meta interface{}) error {
 	attempts := 5
 
 	var account CloudabilityAccount
-	err = try.Do(func(attempt int) (bool, error) {
+	err := try.Do(func(attempt int) (bool, error) {
 		var err error
 		account, err = client.verify(accountID)
 		if err != nil {
