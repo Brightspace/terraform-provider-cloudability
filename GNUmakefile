@@ -7,6 +7,9 @@ default: build
 build: fmtcheck
 	go build
 
+build/win: fmtcheck
+	GOOS=windows go build
+
 get:
 	go get -v -d
 
