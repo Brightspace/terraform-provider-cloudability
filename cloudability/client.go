@@ -172,22 +172,36 @@ func (cloudability Cloudability) verify(account string) (CloudabilityAccount, er
 	err = try.Do(func(ampt int) (bool, error) {
 		var err error
 		resp, err = makeRequest(request, cloudability.Credentials)
-		if err != nil || account.Verification.State != "verified" {
+		tryAgain := ampt < cloudability.RetryMaximum
+
+		if err != nil {
 			log.Printf("[DEBUG] retrying request: (Attempt: %d/%d, URL: %q)", ampt, cloudability.RetryMaximum, err)
 			time.Sleep(30 * time.Second)
+			return tryAgain, err
 		}
-		return ampt < cloudability.RetryMaximum, err
+
+		err = json.Unmarshal([]byte(resp), &response)
+		if err != nil {
+			log.Printf("[DEBUG] failed to unmarshal response: (Attempt: %d/%d, URL: %q)", ampt, cloudability.RetryMaximum, err)
+			time.Sleep(30 * time.Second)
+			return tryAgain, err
+		}
+
+		err = json.Unmarshal([]byte(response.Result), &result)
+		if err != nil {
+			log.Printf("[DEBUG] failed to unmarshal json: (Attempt: %d/%d, URL: %q)", ampt, cloudability.RetryMaximum, err)
+			time.Sleep(30 * time.Second)
+			return tryAgain, err
+		}
+
+		if result.Verification.State != "verified" {
+			log.Printf("[DEBUG] the account is not verified: (Attempt: %d/%d, URL: %q)", ampt, cloudability.RetryMaximum, err)
+			time.Sleep(30 * time.Second)
+			return tryAgain, fmt.Errorf("The account failed to verify. %s", result.ID)
+		}
+
+		return tryAgain, err
 	})
-	if err != nil {
-		return result, err
-	}
-
-	err = json.Unmarshal([]byte(resp), &response)
-	if err != nil {
-		return result, err
-	}
-
-	err = json.Unmarshal([]byte(response.Result), &result)
 	if err != nil {
 		return result, err
 	}
