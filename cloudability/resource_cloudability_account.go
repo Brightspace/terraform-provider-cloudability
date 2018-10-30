@@ -2,6 +2,7 @@ package cloudability
 
 import (
 	"fmt"
+	"log"
 	"time"
 
 	"github.com/hashicorp/terraform/helper/schema"
@@ -48,10 +49,12 @@ func resourceAccountCreate(d *schema.ResourceData, meta interface{}) error {
 	accountID := d.Get("account_id").(string)
 	attempts := 5
 
+	log.Printf("[DEBUG] account verify: (ID: %q)", accountID)
 	var account CloudabilityAccount
 	err := try.Do(func(attempt int) (bool, error) {
 		var err error
 		account, err = client.verify(accountID)
+
 		if err != nil || account.Verification.State != "verified" {
 			time.Sleep(5 * time.Second)
 		}
@@ -66,6 +69,7 @@ func resourceAccountCreate(d *schema.ResourceData, meta interface{}) error {
 		return fmt.Errorf("The account failed to verify. %s", account.ID)
 	}
 
+	log.Printf("[DEBUG] account added: (ID: %q)", account.ID)
 	d.SetId(account.ID)
 
 	return resourceAccountRead(d, meta)
@@ -75,12 +79,14 @@ func resourceAccountRead(d *schema.ResourceData, meta interface{}) error {
 	config := meta.(*Config)
 	client := config.CloudabilityClient
 
+	log.Printf("[DEBUG] account get: (ID: %q)", d.Id())
 	account, err := client.get(d.Id())
 	if err != nil {
 		d.SetId("")
 		return err
 	}
 
+	log.Printf("[DEBUG] account read: (ARN: %q, Name: %q, ExternalID: %q)", account.Authorization.RoleName, account.Authorization.ExternalID)
 	d.Set("role_name", account.Authorization.RoleName)
 	d.Set("external_id", account.Authorization.ExternalID)
 
@@ -91,6 +97,7 @@ func resourceAccountDelete(d *schema.ResourceData, meta interface{}) error {
 	config := meta.(*Config)
 	client := config.CloudabilityClient
 
+	log.Printf("[DEBUG] account delete: (ID: %q)", d.Id())
 	_, err := client.delete(d.Id())
 	if err != nil {
 		return err

@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
+	"log"
 	"net/http"
 	"time"
 
@@ -13,7 +14,8 @@ import (
 )
 
 type Cloudability struct {
-	Credentials Credentials
+	Credentials  Credentials
+	RetryMaximum int
 }
 
 type Credentials struct {
@@ -107,6 +109,8 @@ func makeRequest(request CloudabilityRequest, creds Credentials) (string, error)
 func (cloudability Cloudability) add(accountID string) (CloudabilityAccount, error) {
 	var response CloudabilityResponse
 	var result CloudabilityAccount
+	var resp string
+	var err error
 
 	var payload struct {
 		Type            string `json:"type"`
@@ -127,7 +131,15 @@ func (cloudability Cloudability) add(accountID string) (CloudabilityAccount, err
 		Contents: payloadJSON,
 	}
 
-	resp, err := makeRequest(request, cloudability.Credentials)
+	err = try.Do(func(ampt int) (bool, error) {
+		var err error
+		resp, err = makeRequest(request, cloudability.Credentials)
+		if err != nil {
+			log.Printf("[DEBUG] retrying request: (Attempt: %d/%d, URL: %q)", ampt, cloudability.RetryMaximum, err)
+			time.Sleep(30 * time.Second)
+		}
+		return ampt < cloudability.RetryMaximum, err
+	})
 	if err != nil {
 		return result, err
 	}
@@ -148,6 +160,8 @@ func (cloudability Cloudability) add(accountID string) (CloudabilityAccount, err
 func (cloudability Cloudability) verify(account string) (CloudabilityAccount, error) {
 	var response CloudabilityResponse
 	var result CloudabilityAccount
+	var resp string
+	var err error
 
 	request := CloudabilityRequest{
 		Method:   "POST",
@@ -155,7 +169,15 @@ func (cloudability Cloudability) verify(account string) (CloudabilityAccount, er
 		Contents: []byte(""),
 	}
 
-	resp, err := makeRequest(request, cloudability.Credentials)
+	err = try.Do(func(ampt int) (bool, error) {
+		var err error
+		resp, err = makeRequest(request, cloudability.Credentials)
+		if err != nil {
+			log.Printf("[DEBUG] retrying request: (Attempt: %d/%d, URL: %q)", ampt, cloudability.RetryMaximum, err)
+			time.Sleep(30 * time.Second)
+		}
+		return ampt < cloudability.RetryMaximum, err
+	})
 	if err != nil {
 		return result, err
 	}
@@ -176,6 +198,8 @@ func (cloudability Cloudability) verify(account string) (CloudabilityAccount, er
 func (cloudability Cloudability) get(account string) (CloudabilityAccount, error) {
 	var response CloudabilityResponse
 	var result CloudabilityAccount
+	var resp string
+	var err error
 
 	request := CloudabilityRequest{
 		Method:   "GET",
@@ -183,7 +207,15 @@ func (cloudability Cloudability) get(account string) (CloudabilityAccount, error
 		Contents: []byte(""),
 	}
 
-	resp, err := makeRequest(request, cloudability.Credentials)
+	err = try.Do(func(ampt int) (bool, error) {
+		var err error
+		resp, err = makeRequest(request, cloudability.Credentials)
+		if err != nil {
+			log.Printf("[DEBUG] retrying request: (Attempt: %d/%d, URL: %q)", ampt, cloudability.RetryMaximum, err)
+			time.Sleep(30 * time.Second)
+		}
+		return ampt < cloudability.RetryMaximum, err
+	})
 	if err != nil {
 		return result, err
 	}
@@ -203,8 +235,7 @@ func (cloudability Cloudability) get(account string) (CloudabilityAccount, error
 
 func (cloudability Cloudability) pull(payerAccountID string, accountID string) (CloudabilityAccount, error) {
 	var result CloudabilityAccount
-
-	attempts := 5
+	var err error
 
 	account, err := cloudability.get(accountID)
 	if err == nil {
@@ -216,15 +247,15 @@ func (cloudability Cloudability) pull(payerAccountID string, accountID string) (
 		return result, err
 	}
 
-	err = try.Do(func(attempt int) (bool, error) {
+	err = try.Do(func(ampt int) (bool, error) {
 		var err error
 		result, err = cloudability.get(accountID)
 		if err != nil {
-			time.Sleep(5 * time.Second)
+			log.Printf("[DEBUG] retrying request: (Attempt: %d/%d, URL: %q)", ampt, cloudability.RetryMaximum, err)
+			time.Sleep(30 * time.Second)
 		}
-		return attempt < attempts, err
+		return ampt < cloudability.RetryMaximum, err
 	})
-
 	if err != nil {
 		return result, err
 	}
@@ -233,13 +264,23 @@ func (cloudability Cloudability) pull(payerAccountID string, accountID string) (
 }
 
 func (cloudability Cloudability) delete(account string) (bool, error) {
+	var err error
+
 	request := CloudabilityRequest{
 		Method:   "DELETE",
 		URL:      "/v3/vendors/AWS/accounts/" + account,
 		Contents: []byte(""),
 	}
 
-	_, err := makeRequest(request, cloudability.Credentials)
+	err = try.Do(func(ampt int) (bool, error) {
+		var err error
+		_, err = makeRequest(request, cloudability.Credentials)
+		if err != nil {
+			log.Printf("[DEBUG] retrying request: (Attempt: %d/%d, URL: %q)", ampt, cloudability.RetryMaximum, err)
+			time.Sleep(30 * time.Second)
+		}
+		return ampt < cloudability.RetryMaximum, err
+	})
 	if err != nil {
 		return false, err
 	}
