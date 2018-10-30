@@ -3,10 +3,8 @@ package cloudability
 import (
 	"fmt"
 	"log"
-	"time"
 
 	"github.com/hashicorp/terraform/helper/schema"
-	"github.com/matryer/try"
 )
 
 func resourceAccount() *schema.Resource {
@@ -47,20 +45,9 @@ func resourceAccountCreate(d *schema.ResourceData, meta interface{}) error {
 	client := config.CloudabilityClient
 
 	accountID := d.Get("account_id").(string)
-	attempts := 5
 
 	log.Printf("[DEBUG] account verify: (ID: %q)", accountID)
-	var account CloudabilityAccount
-	err := try.Do(func(attempt int) (bool, error) {
-		var err error
-		account, err = client.verify(accountID)
-
-		if err != nil || account.Verification.State != "verified" {
-			time.Sleep(5 * time.Second)
-		}
-		return attempt < attempts, err
-	})
-
+	account, err := client.verify(accountID)
 	if err != nil {
 		return err
 	}

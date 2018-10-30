@@ -172,7 +172,7 @@ func (cloudability Cloudability) verify(account string) (CloudabilityAccount, er
 	err = try.Do(func(ampt int) (bool, error) {
 		var err error
 		resp, err = makeRequest(request, cloudability.Credentials)
-		if err != nil {
+		if err != nil || account.Verification.State != "verified" {
 			log.Printf("[DEBUG] retrying request: (Attempt: %d/%d, URL: %q)", ampt, cloudability.RetryMaximum, err)
 			time.Sleep(30 * time.Second)
 		}
