@@ -1,6 +1,8 @@
 package cloudability
 
 import (
+	"log"
+
 	"github.com/hashicorp/terraform/helper/schema"
 )
 
@@ -45,11 +47,13 @@ func dataSourceAccountRead(d *schema.ResourceData, meta interface{}) error {
 
 	accountID := d.Get("account_id").(string)
 
+	log.Printf("[DEBUG] data_account : (ID: %q ROOT: %q)", accountID, config.PayerAccountID)
 	account, err := client.pull(config.PayerAccountID, accountID)
 	if err != nil {
 		return err
 	}
 
+	log.Printf("[DEBUG] verification state : (ID: %q STATE: %q)", accountID, account.Verification.State)
 	if account.Verification.State == "" {
 		account, err = client.add(accountID)
 		if err != nil {
@@ -57,6 +61,7 @@ func dataSourceAccountRead(d *schema.ResourceData, meta interface{}) error {
 		}
 	}
 
+	log.Printf("[DEBUG] account parameters: (Parent: %q, Name: %q, ExternalID: %q)", account.ParentAccountID, account.Authorization.RoleName, account.Authorization.ExternalID)
 	d.SetId(account.ID)
 	d.Set("name", account.Name)
 	d.Set("parent_account_id", account.ParentAccountID)
