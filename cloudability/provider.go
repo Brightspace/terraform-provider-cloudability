@@ -34,6 +34,7 @@ func providerConfigure(d *schema.ResourceData) (interface{}, error) {
 		Credentials: Credentials{
 			APIKey: []byte(d.Get("api_key").(string)),
 		},
+		RetryMaximum: 5,
 	}
 	config := Config{
 		CloudabilityClient: client,
