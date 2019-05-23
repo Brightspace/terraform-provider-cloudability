@@ -1,6 +1,6 @@
 TEST?=$$(go list ./... |grep -v 'vendor')
 GOFMT_FILES?=$$(find . -name '*.go' |grep -v vendor)
-PKG_NAME=cloudability
+PKG_NAME=$(shell basename $(CURDIR))
 
 default: build
 
@@ -15,8 +15,8 @@ get:
 
 docker:
 	docker run --rm -it \
-		-v $(PWD):/go/src/github.com/Brightspace/terraform-provider-cloudability \
-		--workdir /go/src/github.com/Brightspace/terraform-provider-cloudability \
+		-v $(PWD):/srv/Brightspace/terraform-provider-$(PKG_NAME) \
+		--workdir /srv/Brightspace/terraform-provider-$(PKG_NAME) \
 		golang bash
 
 test: fmtcheck
