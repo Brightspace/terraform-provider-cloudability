@@ -11,11 +11,13 @@ func Provider() terraform.ResourceProvider {
 			"api_key": {
 				Type:        schema.TypeString,
 				Required:    true,
+				DefaultFunc: schema.EnvDefaultFunc("CLOUDABILITY_TOKEN", nil),
 				Description: "This is the Cloudability personal access token. It must be provided.",
 			},
 			"payer_account_id": {
 				Type:        schema.TypeString,
 				Required:    true,
+				DefaultFunc: schema.EnvDefaultFunc("CLOUDABILITY_PAYER_ACCOUNT_ID", nil),
 				Description: "This is the Cloudability personal access token. It must be provided.",
 			},
 		},
