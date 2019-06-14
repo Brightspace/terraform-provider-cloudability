@@ -1,28 +1,14 @@
-## terraform.gitignore
-#  Local .terraform directories
-**/.terraform/*
 
-# .tfstate files
-*.tfstate
-*.tfstate.*
+# Created by https://www.gitignore.io/api/go
 
-# .tfvars files
-*.tfvars
-
-# .tfplan files
-*.tfplan
-
-# backup and log files
-*.bak
-*.log
-
-## golang.gitignore
+### Go ###
 # Binaries for programs and plugins
 *.exe
 *.exe~
 *.dll
 *.so
 *.dylib
+vendor/
 
 # Test binary, build with `go test -c`
 *.test
@@ -30,5 +16,23 @@
 # Output of the go coverage tool, specifically when used with LiteIDE
 *.out
 
-# Terraform files
-terraform.d/
+
+# End of https://www.gitignore.io/api/go
+
+
+# Created by https://www.gitignore.io/api/terraform
+
+### Terraform ###
+# Compiled files
+*.tfstate
+*.tfstate.*
+**/terraform.d/
+
+# Module directory
+.terraform/
+
+# .tfvars files
+*.tfvars
+
+
+# End of https://www.gitignore.io/api/terraform
