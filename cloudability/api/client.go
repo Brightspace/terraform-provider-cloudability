@@ -1,4 +1,4 @@
-package cloudability
+package api
 
 import (
 	"bytes"
@@ -106,7 +106,7 @@ func makeRequest(request CloudabilityRequest, creds Credentials) (string, error)
 	return string(bytes), nil
 }
 
-func (cloudability Cloudability) add(accountID string) (CloudabilityAccount, error) {
+func (cloudability Cloudability) Add(accountID string) (CloudabilityAccount, error) {
 	var response CloudabilityResponse
 	var result CloudabilityAccount
 	var resp string
@@ -157,7 +157,7 @@ func (cloudability Cloudability) add(accountID string) (CloudabilityAccount, err
 	return result, nil
 }
 
-func (cloudability Cloudability) verify(account string) (CloudabilityAccount, error) {
+func (cloudability Cloudability) Verify(account string) (CloudabilityAccount, error) {
 	var response CloudabilityResponse
 	var result CloudabilityAccount
 	var resp string
@@ -209,7 +209,7 @@ func (cloudability Cloudability) verify(account string) (CloudabilityAccount, er
 	return result, nil
 }
 
-func (cloudability Cloudability) get(account string) (CloudabilityAccount, error) {
+func (cloudability Cloudability) Get(account string) (CloudabilityAccount, error) {
 	var response CloudabilityResponse
 	var result CloudabilityAccount
 	var resp string
@@ -247,23 +247,23 @@ func (cloudability Cloudability) get(account string) (CloudabilityAccount, error
 	return result, nil
 }
 
-func (cloudability Cloudability) pull(payerAccountID string, accountID string) (CloudabilityAccount, error) {
+func (cloudability Cloudability) Pull(payerAccountID string, accountID string) (CloudabilityAccount, error) {
 	var result CloudabilityAccount
 	var err error
 
-	account, err := cloudability.get(accountID)
+	account, err := cloudability.Get(accountID)
 	if err == nil {
 		return account, nil
 	}
 
-	_, err = cloudability.verify(string(payerAccountID))
+	_, err = cloudability.Verify(string(payerAccountID))
 	if err != nil {
 		return result, err
 	}
 
 	err = try.Do(func(ampt int) (bool, error) {
 		var err error
-		result, err = cloudability.get(accountID)
+		result, err = cloudability.Get(accountID)
 		if err != nil {
 			log.Printf("[DEBUG] retrying request: (Attempt: %d/%d, URL: %q)", ampt, cloudability.RetryMaximum, err)
 			time.Sleep(30 * time.Second)
@@ -277,7 +277,7 @@ func (cloudability Cloudability) pull(payerAccountID string, accountID string) (
 	return result, nil
 }
 
-func (cloudability Cloudability) delete(account string) (bool, error) {
+func (cloudability Cloudability) Delete(account string) (bool, error) {
 	var err error
 
 	request := CloudabilityRequest{

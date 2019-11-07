@@ -47,7 +47,7 @@ func resourceAccountCreate(d *schema.ResourceData, meta interface{}) error {
 	accountID := d.Get("account_id").(string)
 
 	log.Printf("[DEBUG] account verify: (ID: %q)", accountID)
-	account, err := client.verify(accountID)
+	account, err := client.Verify(accountID)
 	if err != nil {
 		return err
 	}
@@ -67,7 +67,7 @@ func resourceAccountRead(d *schema.ResourceData, meta interface{}) error {
 	client := config.CloudabilityClient
 
 	log.Printf("[DEBUG] account get: (ID: %q)", d.Id())
-	account, err := client.get(d.Id())
+	account, err := client.Get(d.Id())
 	if err != nil {
 		d.SetId("")
 		return err
@@ -85,7 +85,7 @@ func resourceAccountDelete(d *schema.ResourceData, meta interface{}) error {
 	client := config.CloudabilityClient
 
 	log.Printf("[DEBUG] account delete: (ID: %q)", d.Id())
-	_, err := client.delete(d.Id())
+	_, err := client.Delete(d.Id())
 	if err != nil {
 		return err
 	}

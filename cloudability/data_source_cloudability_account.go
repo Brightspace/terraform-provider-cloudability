@@ -48,14 +48,14 @@ func dataSourceAccountRead(d *schema.ResourceData, meta interface{}) error {
 	accountID := d.Get("account_id").(string)
 
 	log.Printf("[DEBUG] data_account : (ID: %q ROOT: %q)", accountID, config.PayerAccountID)
-	account, err := client.pull(config.PayerAccountID, accountID)
+	account, err := client.Pull(config.PayerAccountID, accountID)
 	if err != nil {
 		return err
 	}
 
 	log.Printf("[DEBUG] verification state : (ID: %q STATE: %q)", accountID, account.Verification.State)
 	if account.Verification.State == "" {
-		account, err = client.add(accountID)
+		account, err = client.Add(accountID)
 		if err != nil {
 			return err
 		}
