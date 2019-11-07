@@ -1,35 +1,30 @@
 package api
 
 import (
-	"bytes"
-	"encoding/base64"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
-	"log"
 	"net/http"
 	"time"
 
-	"github.com/matryer/try"
+	"github.com/go-resty/resty/v2"
 )
 
+const MaximumRetryWaitTimeInSeconds = 15 * time.Minute
+const RetryWaitTimeInSeconds = 30 * time.Second
+
+type Credentials struct {
+	AccessKey []byte
+	SecretKey []byte
+}
+
 type Cloudability struct {
+	RestClient   *resty.Client
 	Credentials  Credentials
 	RetryMaximum int
 }
 
-type Credentials struct {
-	APIKey []byte
-}
-
-type CloudabilityRequest struct {
-	Method   string
-	URL      string
-	Contents []byte
-}
-
-type CloudabilityResponse struct {
-	Result json.RawMessage `json:result`
+type getExternalAccountAws struct {
+	Result CloudabilityAccount `json:"result"`
 }
 
 type CloudabilityAccount struct {
@@ -38,225 +33,81 @@ type CloudabilityAccount struct {
 	AccountID       string                           `json:"vendorAccountId"`
 	ParentAccountID string                           `json:"parentAccountId"`
 	VendorKey       string                           `json:"vendorKey"`
-	Verification    CloudabilityAccountVerification  `json:"verification"`
-	Authorization   CloudabilityAccountAuthorization `json:"authorization"`
+	Verification    struct {
+		State                       string `json:"state"`
+		LastVerificationAttemptedAt string `json:"lastVerificationAttemptedAt"`
+	}  `json:"verification"`
+	Authorization   struct {
+		Type       string `json:"type"`
+		RoleName   string `json:"roleName"`
+		ExternalID string `json:"externalId"`
+	} `json:"authorization"`
 }
 
-type CloudabilityAccountVerification struct {
-	State                       string `json:"state"`
-	LastVerificationAttemptedAt string `json:"lastVerificationAttemptedAt"`
-}
+func (cloudability *Cloudability) SetRestClient(rest *resty.Client) {
+	rest.SetHostURL("https://api.evident.io")
 
-type CloudabilityAccountAuthorization struct {
-	Type       string `json:"type"`
-	RoleName   string `json:"roleName"`
-	ExternalID string `json:"externalId"`
-}
-
-func makeHeaders(req CloudabilityRequest, creds Credentials) (map[string]interface{}, error) {
-	headers := make(map[string]interface{})
-
-	ctype := "application/json"
-	encodedAuth := base64.StdEncoding.EncodeToString([]byte(creds.APIKey))
-
-	headers["Accept"] = ctype
-	headers["Content-Type"] = ctype
-	headers["Authorization"] = fmt.Sprintf("Basic %s", encodedAuth)
-
-	return headers, nil
-}
-
-func makeRequest(request CloudabilityRequest, creds Credentials) (string, error) {
-	baseURL := "https://api.cloudability.com"
-	client := &http.Client{}
-
-	req, err := http.NewRequest(request.Method, baseURL+request.URL, bytes.NewBuffer(request.Contents))
-	if err != nil {
-		return "", fmt.Errorf("Error creating request: %s", err)
-	}
-
-	headers, _ := makeHeaders(request, creds)
-	for name, value := range headers {
-		req.Header.Set(name, value.(string))
-	}
-
-	resp, err := client.Do(req)
-	if err != nil {
-		return "", fmt.Errorf("Error during making a request: %s", request.URL)
-
-	}
-
-	defer resp.Body.Close()
-
-	if resp.StatusCode != 200 && resp.StatusCode != 201 {
-		return "", fmt.Errorf("HTTP request error. Response code: %d", resp.StatusCode)
-
-	}
-
-	contentType := resp.Header.Get("Content-Type")
-	if contentType == "application/vnd.api+json" {
-		return "", fmt.Errorf("Content-Type is not a json type. Got: %s", contentType)
-	}
-
-	bytes, err := ioutil.ReadAll(resp.Body)
-	if err != nil {
-		return "", fmt.Errorf("Error while reading response body. %s", err)
-	}
-
-	return string(bytes), nil
-}
-
-func (cloudability Cloudability) Add(accountID string) (CloudabilityAccount, error) {
-	var response CloudabilityResponse
-	var result CloudabilityAccount
-	var resp string
-	var err error
-
-	var payload struct {
-		Type            string `json:"type"`
-		VendorAccountID string `json:"vendorAccountId"`
-	}
-
-	payload.Type = "aws_role"
-	payload.VendorAccountID = accountID
-
-	payloadJSON, err := json.Marshal(payload)
-	if err != nil {
-		return result, err
-	}
-
-	request := CloudabilityRequest{
-		Method:   "POST",
-		URL:      "/v3/vendors/AWS/accounts/",
-		Contents: payloadJSON,
-	}
-
-	err = try.Do(func(ampt int) (bool, error) {
-		var err error
-		resp, err = makeRequest(request, cloudability.Credentials)
-		if err != nil {
-			log.Printf("[DEBUG] retrying request: (Attempt: %d/%d, URL: %q)", ampt, cloudability.RetryMaximum, err)
-			time.Sleep(30 * time.Second)
+	// Retry
+	rest.SetRetryCount(evident.RetryMaximum)
+	rest.SetRetryWaitTime(RetryWaitTimeInSeconds)
+	rest.SetRetryMaxWaitTime(MaximumRetryWaitTimeInSeconds)
+	rest.AddRetryCondition(func(r *resty.Response, err error) bool {
+		switch code := r.StatusCode(); code {
+		case http.StatusTooManyRequests:
+			return true
+		default:
+			return false
 		}
-		return ampt < cloudability.RetryMaximum, err
 	})
-	if err != nil {
-		return result, err
-	}
 
-	err = json.Unmarshal([]byte(resp), &response)
-	if err != nil {
-		return result, err
-	}
-
-	err = json.Unmarshal([]byte(response.Result), &result)
-	if err != nil {
-		return result, err
-	}
-
-	return result, nil
-}
-
-func (cloudability Cloudability) Verify(account string) (CloudabilityAccount, error) {
-	var response CloudabilityResponse
-	var result CloudabilityAccount
-	var resp string
-	var err error
-
-	request := CloudabilityRequest{
-		Method:   "POST",
-		URL:      "/v3/vendors/AWS/accounts/" + account + "/verification",
-		Contents: []byte(""),
-	}
-
-	err = try.Do(func(ampt int) (bool, error) {
-		var err error
-		resp, err = makeRequest(request, cloudability.Credentials)
-		tryAgain := ampt < cloudability.RetryMaximum
-
-		if err != nil {
-			log.Printf("[DEBUG] retrying request: (Attempt: %d/%d, URL: %q)", ampt, cloudability.RetryMaximum, err)
-			time.Sleep(30 * time.Second)
-			return tryAgain, err
+	// Error handling
+	rest.OnAfterResponse(func(c *resty.Client, r *resty.Response) error {
+		status := r.StatusCode()
+		if status == http.StatusNotFound {
+			return nil
 		}
 
-		err = json.Unmarshal([]byte(resp), &response)
-		if err != nil {
-			log.Printf("[DEBUG] failed to unmarshal response: (Attempt: %d/%d, URL: %q)", ampt, cloudability.RetryMaximum, err)
-			time.Sleep(30 * time.Second)
-			return tryAgain, err
+		if (status < 200) || (status >= 400) {
+			return fmt.Errorf("Response not successful: Received status code %d.", status)
 		}
 
-		err = json.Unmarshal([]byte(response.Result), &result)
-		if err != nil {
-			log.Printf("[DEBUG] failed to unmarshal json: (Attempt: %d/%d, URL: %q)", ampt, cloudability.RetryMaximum, err)
-			time.Sleep(30 * time.Second)
-			return tryAgain, err
-		}
-
-		if result.Verification.State != "verified" {
-			log.Printf("[DEBUG] the account is not verified: (Attempt: %d/%d, URL: %q)", ampt, cloudability.RetryMaximum, err)
-			time.Sleep(30 * time.Second)
-			return tryAgain, fmt.Errorf("The account failed to verify. %s", result.ID)
-		}
-
-		return tryAgain, err
+		return nil
 	})
-	if err != nil {
-		return result, err
-	}
 
-	return result, nil
-}
-
-func (cloudability Cloudability) Get(account string) (CloudabilityAccount, error) {
-	var response CloudabilityResponse
-	var result CloudabilityAccount
-	var resp string
-	var err error
-
-	request := CloudabilityRequest{
-		Method:   "GET",
-		URL:      "/v3/vendors/AWS/accounts/" + account,
-		Contents: []byte(""),
-	}
-
-	err = try.Do(func(ampt int) (bool, error) {
-		var err error
-		resp, err = makeRequest(request, cloudability.Credentials)
-		if err != nil {
-			log.Printf("[DEBUG] retrying request: (Attempt: %d/%d, URL: %q)", ampt, cloudability.RetryMaximum, err)
-			time.Sleep(30 * time.Second)
+	//Authentication
+	rest.OnBeforeRequest(func(c *resty.Client, r *resty.Request) error {
+		t := time.Now().UTC()
+		key := string(evident.Credentials.AccessKey)
+		secret := string(evident.Credentials.SecretKey)
+		sign, _ := NewHTTPSignature(r.URL, r.Method, []byte(r.Body.(string)), t, key, secret)
+		for name, value := range sign {
+			r.SetHeader(name, value.(string))
 		}
-		return ampt < cloudability.RetryMaximum, err
+		return nil
 	})
-	if err != nil {
-		return result, err
-	}
 
-	err = json.Unmarshal([]byte(resp), &response)
-	if err != nil {
-		return result, err
-	}
-
-	err = json.Unmarshal([]byte(response.Result), &result)
-	if err != nil {
-		return result, err
-	}
-
-	return result, nil
+	evident.RestClient = rest
 }
 
-func (cloudability Cloudability) Pull(payerAccountID string, accountID string) (CloudabilityAccount, error) {
+func (cloudability *Cloudability) GetRestClient() *resty.Client {
+	if evident.RestClient == nil {
+		rest := resty.New()
+		evident.SetRestClient(rest)
+	}
+	return evident.RestClient
+}
+
+func (cloudability *Cloudability) Poll(id string, parentId string) (*ExternalAccount, error) {
 	var result CloudabilityAccount
 	var err error
 
-	account, err := cloudability.Get(accountID)
+	result, err = cloudability.Get(id)
 	if err == nil {
-		return account, nil
+		return result, nil
 	}
 
-	_, err = cloudability.Verify(string(payerAccountID))
+	// ensure that this is successful
+	_, err = cloudability.Verification(parentId)
 	if err != nil {
 		return result, err
 	}
@@ -277,27 +128,82 @@ func (cloudability Cloudability) Pull(payerAccountID string, accountID string) (
 	return result, nil
 }
 
-func (cloudability Cloudability) Delete(account string) (bool, error) {
-	var err error
+func (cloudability *Cloudability) Get(account string) (*ExternalAccount, error) {
+	restClient := evident.GetRestClient()
 
-	request := CloudabilityRequest{
-		Method:   "DELETE",
-		URL:      "/v3/vendors/AWS/accounts/" + account,
-		Contents: []byte(""),
+	url := fmt.Sprintf("/v3/vendors/AWS/accounts/%s", account)
+	req := restClient.R().SetBody("").SetResult(&getExternalAccountAws{})
+
+	resp, err := req.Get(url)
+	if err != nil {
+		return nil, err
 	}
 
-	err = try.Do(func(ampt int) (bool, error) {
-		var err error
-		_, err = makeRequest(request, cloudability.Credentials)
-		if err != nil {
-			log.Printf("[DEBUG] retrying request: (Attempt: %d/%d, URL: %q)", ampt, cloudability.RetryMaximum, err)
-			time.Sleep(30 * time.Second)
-		}
-		return ampt < cloudability.RetryMaximum, err
-	})
+	status := resp.StatusCode()
+	if status == http.StatusNotFound {
+		return nil, nil
+	}
+
+	response := resp.Result().(*getExternalAccountAws)
+	if response == nil {
+		return nil, nil
+	}
+
+	return &response.Data, nil
+}
+
+func (cloudability *Cloudability) Delete(id string) (bool, error) {
+	restClient := evident.GetRestClient()
+
+	url := fmt.Sprintf("/v3/vendors/AWS/accounts/%s", account)
+	req := restClient.R().SetBody("")
+
+	_, err := req.Delete(url)
 	if err != nil {
 		return false, err
 	}
 
 	return true, nil
+}
+
+func (cloudability *Cloudability) Add(id string) (CloudabilityAccount, error)
+	var result CloudabilityAccount
+	restClient := cloudability.GetRestClient()
+
+	payload := map[string]interface{}{
+		"type": "aws_role",
+		"vendorAccountId": id,
+	}
+
+	body, err := json.Marshal(payload)
+	if err != nil {
+		return result, err
+	}
+
+	url := "/v3/vendors/AWS/accounts/"
+	req := restClient.R().SetBody(string(body)).SetResult(&getExternalAccountAws{})
+
+	resp, err := req.Post(url)
+	if err != nil {
+		return result, err
+	}
+
+	response := resp.Result().(*getExternalAccountAws)
+	return response.Result, nil
+}
+
+func (cloudability *Cloudability) Verification(id string) (CloudabilityAccount, error)
+	var result CloudabilityAccount
+	restClient := cloudability.GetRestClient()
+
+	url := fmt.Sprintf("/v3/vendors/AWS/accounts/%s/verification", id)
+	req := restClient.R().SetBody("").SetResult(&getExternalAccountAws{})
+
+	resp, err := req.Post(url)
+	if err != nil {
+		return result, err
+	}
+
+	response := resp.Result().(*getExternalAccountAws)
+	return response.Result, nil
 }
