@@ -5,7 +5,9 @@ import (
 	"fmt"
 	"net/http"
 	"time"
+	"log"
 
+	"github.com/matryer/try"
 	"github.com/go-resty/resty/v2"
 )
 
@@ -13,8 +15,7 @@ const MaximumRetryWaitTimeInSeconds = 15 * time.Minute
 const RetryWaitTimeInSeconds = 30 * time.Second
 
 type Credentials struct {
-	AccessKey []byte
-	SecretKey []byte
+	APIKey []byte
 }
 
 type Cloudability struct {
@@ -45,10 +46,10 @@ type CloudabilityAccount struct {
 }
 
 func (cloudability *Cloudability) SetRestClient(rest *resty.Client) {
-	rest.SetHostURL("https://api.evident.io")
+	rest.SetHostURL("https://api.cloudability.com")
 
 	// Retry
-	rest.SetRetryCount(evident.RetryMaximum)
+	rest.SetRetryCount(cloudability.RetryMaximum)
 	rest.SetRetryWaitTime(RetryWaitTimeInSeconds)
 	rest.SetRetryMaxWaitTime(MaximumRetryWaitTimeInSeconds)
 	rest.AddRetryCondition(func(r *resty.Response, err error) bool {
@@ -76,29 +77,26 @@ func (cloudability *Cloudability) SetRestClient(rest *resty.Client) {
 
 	//Authentication
 	rest.OnBeforeRequest(func(c *resty.Client, r *resty.Request) error {
-		t := time.Now().UTC()
-		key := string(evident.Credentials.AccessKey)
-		secret := string(evident.Credentials.SecretKey)
-		sign, _ := NewHTTPSignature(r.URL, r.Method, []byte(r.Body.(string)), t, key, secret)
+		sign, _ := NewHTTPSignature(cloudability.Credentials.APIKey)
 		for name, value := range sign {
 			r.SetHeader(name, value.(string))
 		}
 		return nil
 	})
 
-	evident.RestClient = rest
+	cloudability.RestClient = rest
 }
 
 func (cloudability *Cloudability) GetRestClient() *resty.Client {
-	if evident.RestClient == nil {
+	if cloudability.RestClient == nil {
 		rest := resty.New()
-		evident.SetRestClient(rest)
+		cloudability.SetRestClient(rest)
 	}
-	return evident.RestClient
+	return cloudability.RestClient
 }
 
-func (cloudability *Cloudability) Poll(id string, parentId string) (*ExternalAccount, error) {
-	var result CloudabilityAccount
+func (cloudability *Cloudability) Poll(id string, parentId string) (*CloudabilityAccount, error) {
+	var result *CloudabilityAccount
 	var err error
 
 	result, err = cloudability.Get(id)
@@ -114,7 +112,7 @@ func (cloudability *Cloudability) Poll(id string, parentId string) (*ExternalAcc
 
 	err = try.Do(func(ampt int) (bool, error) {
 		var err error
-		result, err = cloudability.Get(accountID)
+		result, err = cloudability.Get(id)
 		if err != nil {
 			log.Printf("[DEBUG] retrying request: (Attempt: %d/%d, URL: %q)", ampt, cloudability.RetryMaximum, err)
 			time.Sleep(30 * time.Second)
@@ -128,8 +126,8 @@ func (cloudability *Cloudability) Poll(id string, parentId string) (*ExternalAcc
 	return result, nil
 }
 
-func (cloudability *Cloudability) Get(account string) (*ExternalAccount, error) {
-	restClient := evident.GetRestClient()
+func (cloudability *Cloudability) Get(account string) (*CloudabilityAccount, error) {
+	restClient := cloudability.GetRestClient()
 
 	url := fmt.Sprintf("/v3/vendors/AWS/accounts/%s", account)
 	req := restClient.R().SetBody("").SetResult(&getExternalAccountAws{})
@@ -149,13 +147,13 @@ func (cloudability *Cloudability) Get(account string) (*ExternalAccount, error) 
 		return nil, nil
 	}
 
-	return &response.Data, nil
+	return &response.Result, nil
 }
 
 func (cloudability *Cloudability) Delete(id string) (bool, error) {
-	restClient := evident.GetRestClient()
+	restClient := cloudability.GetRestClient()
 
-	url := fmt.Sprintf("/v3/vendors/AWS/accounts/%s", account)
+	url := fmt.Sprintf("/v3/vendors/AWS/accounts/%s", id)
 	req := restClient.R().SetBody("")
 
 	_, err := req.Delete(url)
@@ -166,7 +164,7 @@ func (cloudability *Cloudability) Delete(id string) (bool, error) {
 	return true, nil
 }
 
-func (cloudability *Cloudability) Add(id string) (CloudabilityAccount, error)
+func (cloudability *Cloudability) Add(id string) (CloudabilityAccount, error) {
 	var result CloudabilityAccount
 	restClient := cloudability.GetRestClient()
 
@@ -192,7 +190,7 @@ func (cloudability *Cloudability) Add(id string) (CloudabilityAccount, error)
 	return response.Result, nil
 }
 
-func (cloudability *Cloudability) Verification(id string) (CloudabilityAccount, error)
+func (cloudability *Cloudability) Verification(id string) (CloudabilityAccount, error) {
 	var result CloudabilityAccount
 	restClient := cloudability.GetRestClient()
 

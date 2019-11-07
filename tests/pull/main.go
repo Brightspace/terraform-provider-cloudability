@@ -2,7 +2,7 @@ package main
 
 import (
 	"fmt"
-	"github.com/Brightspace/terraform-provider-evident/evident/api"
+	"github.com/Brightspace/terraform-provider-cloudability/cloudability/api"
 	"os"
 )
 

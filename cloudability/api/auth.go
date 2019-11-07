@@ -1,13 +1,8 @@
 package api
 
 import (
-	"crypto/hmac"
-	"crypto/md5"
-	"crypto/sha1"
 	"encoding/base64"
 	"fmt"
-	"net/http"
-	"time"
 )
 
 func NewHTTPSignature(key []byte) (map[string]interface{}, error) {
