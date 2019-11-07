@@ -187,8 +187,8 @@ func (cloudability *Cloudability) Add(id string) (*CloudabilityAccount, error) {
 	return &response.Result, nil
 }
 
-func (cloudability *Cloudability) Verification(id string) (CloudabilityAccount, error) {
-	var result CloudabilityAccount
+func (cloudability *Cloudability) Verification(id string) (*CloudabilityAccount, error) {
+	var result *CloudabilityAccount
 	restClient := cloudability.GetRestClient()
 
 	url := fmt.Sprintf("/v3/vendors/AWS/accounts/%s/verification", id)
@@ -200,5 +200,5 @@ func (cloudability *Cloudability) Verification(id string) (CloudabilityAccount, 
 	}
 
 	response := resp.Result().(*getExternalAccountAws)
-	return response.Result, nil
+	return &response.Result, nil
 }

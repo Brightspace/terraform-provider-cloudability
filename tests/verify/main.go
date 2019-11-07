@@ -8,27 +8,29 @@ import (
 )
 
 func main() {
-	if len(os.Args) < 5 {
-		log.Fatal("Missing required inputs")
+	if len(os.Args) < 2 {
+		log.Fatal("Missing ID for AWS account")
 	}
-	name := "EvidentProviderTestUpdate"
 	id := os.Args[1]
-	arn := os.Args[2]
-	team_id := os.Args[3]
-	external_id := os.Args[4]
 
-	client := api.Evident{
+	client := api.Cloudability{
 		Credentials: api.Credentials{
-			AccessKey: []byte(os.Getenv("EVIDENT_ACCESS_KEY")),
-			SecretKey: []byte(os.Getenv("EVIDENT_SECRET_KEY")),
+			APIKey: []byte(os.Getenv("CLOUDABILITY_TOKEN")),
 		},
 		RetryMaximum: 5,
 	}
 
-	result, err := client.Update(id, name, arn, external_id, team_id)
-	fmt.Println("err:\n", err)
-	fmt.Println("id:\n", result.ID)
-	fmt.Println("name:\n", result.Attributes.Name)
-	fmt.Println("arn:\n", result.Attributes.Arn)
-	fmt.Println("external_id:\n", result.Attributes.ExternalID)
+	result, err := client.Verification(id)
+	if result == nil {
+		fmt.Println("id could not be found:\n", id)
+		return
+	}
+
+	if err != nil {
+		fmt.Println("err:\n", err)
+		return
+	}
+	fmt.Println("ID:\n", result.ID)
+	fmt.Println("State:\n", result.Verification.State)
+	fmt.Println("LastVerificationAttemptedAt:\n", result.Verification.LastVerificationAttemptedAt)
 }
