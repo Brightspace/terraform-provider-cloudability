@@ -9,25 +9,24 @@ import (
 
 func main() {
 	if len(os.Args) < 2 {
-		log.Fatal("Missing ID for evident resource")
+		log.Fatal("Missing ID for AWS account")
 	}
-	arg := os.Args[1]
+	id := os.Args[1]
 
-	client := api.Evident{
+	client := api.Cloudability{
 		Credentials: api.Credentials{
-			AccessKey: []byte(os.Getenv("EVIDENT_ACCESS_KEY")),
-			SecretKey: []byte(os.Getenv("EVIDENT_SECRET_KEY")),
+			APIKey: []byte(os.Getenv("CLOUDABILITY_TOKEN")),
 		},
 		RetryMaximum: 5,
 	}
 
-	resp, _ := client.Delete(arg)
+	resp, _ := client.Delete(id)
 	fmt.Println(resp)
 
-	result, _ := client.Get(arg)
-	if result != nil {
-		fmt.Println("success:\n", arg)
+	result, _ := client.Get(id)
+	if result.Verification.State == "" {
+		fmt.Println("success:\n", id)
 	} else {
-		fmt.Println("fail:\n", arg)
+		fmt.Println("fail:\n", result.Verification.State)
 	}
 }
