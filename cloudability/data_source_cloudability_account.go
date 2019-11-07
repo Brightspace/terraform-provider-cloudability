@@ -48,7 +48,7 @@ func dataSourceAccountRead(d *schema.ResourceData, meta interface{}) error {
 	accountID := d.Get("account_id").(string)
 
 	log.Printf("[DEBUG] data_account : (ID: %q ROOT: %q)", accountID, config.PayerAccountID)
-	account, err := client.Pull(config.PayerAccountID, accountID)
+	account, err := client.Poll(config.PayerAccountID, accountID)
 	if err != nil {
 		return err
 	}

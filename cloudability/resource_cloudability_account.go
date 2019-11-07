@@ -47,7 +47,7 @@ func resourceAccountCreate(d *schema.ResourceData, meta interface{}) error {
 	accountID := d.Get("account_id").(string)
 
 	log.Printf("[DEBUG] account verify: (ID: %q)", accountID)
-	account, err := client.Verify(accountID)
+	account, err := client.Verification(accountID)
 	if err != nil {
 		return err
 	}

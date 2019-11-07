@@ -11,7 +11,8 @@ func main() {
 	if len(os.Args) < 2 {
 		log.Fatal("Missing ID for AWS account")
 	}
-	arg := os.Args[1]
+	id := os.Args[1]
+	parent := os.Getenv("CLOUDABILITY_PAYER_ACCOUNT_ID")
 
 	client := api.Cloudability{
 		Credentials: api.Credentials{
@@ -20,9 +21,9 @@ func main() {
 		RetryMaximum: 5,
 	}
 
-	result, err := client.Poll(arg)
+	result, err := client.Poll(id, parent)
 	if result == nil {
-		fmt.Println("id could not be found:\n", arg)
+		fmt.Println("id could not be found:\n", id)
 		return
 	}
 

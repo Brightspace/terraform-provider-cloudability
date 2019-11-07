@@ -3,12 +3,12 @@ package api
 import (
 	"encoding/json"
 	"fmt"
+	"log"
 	"net/http"
 	"time"
-	"log"
 
-	"github.com/matryer/try"
 	"github.com/go-resty/resty/v2"
+	"github.com/matryer/try"
 )
 
 const MaximumRetryWaitTimeInSeconds = 15 * time.Minute
@@ -29,16 +29,16 @@ type getExternalAccountAws struct {
 }
 
 type CloudabilityAccount struct {
-	ID              string                           `json:"id"`
-	Name            string                           `json:"vendorAccountName"`
-	AccountID       string                           `json:"vendorAccountId"`
-	ParentAccountID string                           `json:"parentAccountId"`
-	VendorKey       string                           `json:"vendorKey"`
+	ID              string `json:"id"`
+	Name            string `json:"vendorAccountName"`
+	AccountID       string `json:"vendorAccountId"`
+	ParentAccountID string `json:"parentAccountId"`
+	VendorKey       string `json:"vendorKey"`
 	Verification    struct {
 		State                       string `json:"state"`
 		LastVerificationAttemptedAt string `json:"lastVerificationAttemptedAt"`
-	}  `json:"verification"`
-	Authorization   struct {
+	} `json:"verification"`
+	Authorization struct {
 		Type       string `json:"type"`
 		RoleName   string `json:"roleName"`
 		ExternalID string `json:"externalId"`
@@ -96,10 +96,7 @@ func (cloudability *Cloudability) GetRestClient() *resty.Client {
 }
 
 func (cloudability *Cloudability) Poll(id string, parentId string) (*CloudabilityAccount, error) {
-	var result *CloudabilityAccount
-	var err error
-
-	result, err = cloudability.Get(id)
+	result, err := cloudability.Get(id)
 	if err == nil {
 		return result, nil
 	}
@@ -164,12 +161,12 @@ func (cloudability *Cloudability) Delete(id string) (bool, error) {
 	return true, nil
 }
 
-func (cloudability *Cloudability) Add(id string) (CloudabilityAccount, error) {
-	var result CloudabilityAccount
+func (cloudability *Cloudability) Add(id string) (*CloudabilityAccount, error) {
+	var result *CloudabilityAccount
 	restClient := cloudability.GetRestClient()
 
 	payload := map[string]interface{}{
-		"type": "aws_role",
+		"type":            "aws_role",
 		"vendorAccountId": id,
 	}
 
@@ -187,7 +184,7 @@ func (cloudability *Cloudability) Add(id string) (CloudabilityAccount, error) {
 	}
 
 	response := resp.Result().(*getExternalAccountAws)
-	return response.Result, nil
+	return &response.Result, nil
 }
 
 func (cloudability *Cloudability) Verification(id string) (CloudabilityAccount, error) {
