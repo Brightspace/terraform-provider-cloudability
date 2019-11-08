@@ -112,7 +112,7 @@ func (cloudability *Cloudability) Poll(id string, parentId string) (*Cloudabilit
 		result, err = cloudability.Get(id)
 		if err != nil {
 			log.Printf("[DEBUG] retrying request: (Attempt: %d/%d, URL: %q)", ampt, cloudability.RetryMaximum, err)
-			time.Sleep(30 * time.Second)
+			time.Sleep(RetryWaitTimeInSeconds)
 		}
 		return ampt < cloudability.RetryMaximum, err
 	})
@@ -201,4 +201,29 @@ func (cloudability *Cloudability) Verification(id string) (*CloudabilityAccount,
 
 	response := resp.Result().(*getExternalAccountAws)
 	return &response.Result, nil
+}
+
+func (cloudability *Cloudability) Verify(id string) (*CloudabilityAccount, error) {
+	err := try.Do(func(ampt int) (bool, error) {
+		result, err := cloudability.Verification(id)
+		if err != nil {
+			log.Printf("[DEBUG] retrying request: (Attempt: %d/%d)", ampt, cloudability.RetryMaximum, err)
+			time.Sleep(RetryWaitTimeInSeconds)
+		} else if result.Verification.State != "verified" {
+			log.Printf("[DEBUG] retrying request: (Attempt: %d/%d)", ampt, cloudability.RetryMaximum, err)
+			err = fmt.Errorf("Verification was not successful: [%s]", result.Verification.State)
+			time.Sleep(RetryWaitTimeInSeconds)
+		}
+
+		return ampt < cloudability.RetryMaximum, err
+	})
+
+	var result *CloudabilityAccount
+	if err != nil {
+		log.Printf("[DEBUG] Could not verify the account: %q", err)
+		return result, err
+	}
+
+	result, err = cloudability.Verification(id)
+	return result, err
 }
