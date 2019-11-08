@@ -1,6 +1,7 @@
 package cloudability
 
 import (
+	"github.com/Brightspace/terraform-provider-cloudability/cloudability/api"
 	"github.com/hashicorp/terraform/helper/schema"
 	"github.com/hashicorp/terraform/terraform"
 )
@@ -32,8 +33,8 @@ func Provider() terraform.ResourceProvider {
 }
 
 func providerConfigure(d *schema.ResourceData) (interface{}, error) {
-	client := Cloudability{
-		Credentials: Credentials{
+	client := api.Cloudability{
+		Credentials: api.Credentials{
 			APIKey: []byte(d.Get("api_key").(string)),
 		},
 		RetryMaximum: 5,
