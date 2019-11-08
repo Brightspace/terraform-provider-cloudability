@@ -73,7 +73,7 @@ func resourceAccountRead(d *schema.ResourceData, meta interface{}) error {
 		return err
 	}
 
-	log.Printf("[DEBUG] account read: (ARN: %q, Name: %q, ExternalID: %q)", account.Authorization.RoleName, account.Authorization.ExternalID)
+	log.Println("[DEBUG] account read:", account.Authorization.RoleName, account.Authorization.ExternalID)
 	d.Set("role_name", account.Authorization.RoleName)
 	d.Set("external_id", account.Authorization.ExternalID)
 

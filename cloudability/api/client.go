@@ -207,10 +207,10 @@ func (cloudability *Cloudability) Verify(id string) (*CloudabilityAccount, error
 	err := try.Do(func(ampt int) (bool, error) {
 		result, err := cloudability.Verification(id)
 		if err != nil {
-			log.Printf("[DEBUG] retrying request: (Attempt: %d/%d)", ampt, cloudability.RetryMaximum, err)
+			log.Printf("[DEBUG] retrying request: %v", ampt)
 			time.Sleep(RetryWaitTimeInSeconds)
 		} else if result.Verification.State != "verified" {
-			log.Printf("[DEBUG] retrying request: (Attempt: %d/%d)", ampt, cloudability.RetryMaximum, err)
+			log.Printf("[DEBUG] retrying request: %v", ampt)
 			err = fmt.Errorf("Verification was not successful: [%s]", result.Verification.State)
 			time.Sleep(RetryWaitTimeInSeconds)
 		}
