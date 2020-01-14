@@ -1,10 +1,8 @@
 # Cloudability Provider
 
-The Cloudability provider is used to interact with Cloudability AWS resources.
+The Cloudability provider is used to connect AWS accounts to Cloudability. This provider is not official, and is developed to cover a narrow slice of the Cloudability API.
 
 The provider allows you to manage your Cloudability AWS connections. It needs to be configured with the proper credentials before it can be used.
-
-Use the navigation below to read about the available resources.
 
 ## Example Usage
 
@@ -16,8 +14,9 @@ provider "cloudability" {}
 data "cloudability_account" "cloudability" {
   account_id = "987654321012"
 }
-
 ```
+
+The cloudability provider is a [third party custom provider](https://www.terraform.io/docs/configuration/providers.html#third-party-plugins). Third-party providers must be manually installed, since `terraform init` cannot automatically download them.
 
 ## Authentication
 
