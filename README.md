@@ -1,4 +1,4 @@
-Terraform Provider
+Cloudability Terraform Provider
 ==================
 
 - Website: https://www.terraform.io
