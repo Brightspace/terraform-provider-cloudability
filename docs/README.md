@@ -24,10 +24,9 @@ The Cloudability provider can be provided credentials for authentication using e
 
 ### Static credentials
 
-| :warning: Hard-coding credentials into any Terraform configuration is not recommended, and risks secret leakage should this file ever be committed to a public version control system :warning: |
-| --- |
+> Hard-coding credentials into any Terraform configuration is not recommended, and risks secret leakage should this file ever be committed to a public version control system
 
-Static credentials can be provided by adding an `api_key` and `payer_account_id` in-line in the AWS provider block or by variables:
+Static credentials can be provided by adding an `api_key` and `payer_account_id` in-line in the Cloudability provider block or by variables:
 
 Usage:
 
@@ -42,7 +41,7 @@ provider "cloudability" {
 You can provide your credentials via the `CLOUDABILITY_TOKEN` and `CLOUDABILITY_PAYER_ACCOUNT_ID`, environment variables, representing your Cloudability API Token and AWS Billing Account ID, respectively.
 
 ```hcl
-provider "aws" {}
+provider "cloudability" {}
 ```
 
 Usage:
